@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>패시브 각성 트리</title>
+</head>
+<body>
+  <h1>패시브 각성 트리</h1>
+  <div id="status">토큰 검증 중...</div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+
+    if (!token) {
+      document.getElementById('status').textContent = '토큰이 없습니다. 인게임 NPC를 통해 접속해주세요.';
+    } else {
+      fetch('/api/verify?token=' + token)
+        .then(r => r.json())
+        .then(data => {
+          if (data.valid) {
+            document.getElementById('status').textContent = '인증 성공 - char_id: ' + data.char_id;
+          } else {
+            document.getElementById('status').textContent = '토큰이 유효하지 않거나 만료되었습니다.';
+          }
+        });
+    }
+  </script>
+</body>
+</html>
