@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>패시브 각성 트리</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1a24;
+    --panel-bg: #1e1e2e;
+    --border: #3a3a4a;
+    --gold: #e0b030;
+    --gold-light: #f5d060;
+    --str-color: #e04444;
+    --str-dark: #2a0808;
+    --str-mid: #3e1010;
+    --int-color: #4477ee;
+    --int-dark: #080820;
+    --int-mid: #101836;
+    --agi-color: #44bb55;
+    --agi-dark: #081408;
+    --agi-mid: #102010;
+    --node-size: 58px;
+    --node-gap: 16px;
+    --text: #d0d0e0;
+    --text-dim: #888899;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 10px 40px;
+    background-image:
+      radial-gradient(ellipse at 20% 40%, rgba(80,20,20,0.25) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 40%, rgba(20,20,80,0.25) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 90%, rgba(20,60,20,0.2) 0%, transparent 50%);
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    color: var(--gold);
+    letter-spacing: 5px;
+    text-shadow: 0 0 24px rgba(224,176,48,0.5);
+  }
+  .header .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-top: 5px;
+  }
+
+  /* 포인트 바 */
+  .point-bar {
+    display: flex;
+    gap: 28px;
+    margin-bottom: 22px;
+    padding: 10px 32px;
+    background: #22222e;
+    border: 1px solid #3a3a50;
+    border-radius: 4px;
+    align-items: center;
+  }
+  .point-bar .total {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+  .point-bar .total span {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .point-bar .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* 3계열 컨테이너 */
+  .trees {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .tree-panel {
+    width: 228px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  .tree-panel.str { border-color: #4a1818; background: linear-gradient(180deg, #1e0a0a 0%, #160808 100%); }
+  .tree-panel.int { border-color: #181840; background: linear-gradient(180deg, #0a0a1e 0%, #080814 100%); }
+  .tree-panel.agi { border-color: #184018; background: linear-gradient(180deg, #0a1e0a 0%, #081408 100%); }
+
+  /* 계열 헤더 */
+  .tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tree-header .tree-name {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    font-weight: 600;
+  }
+  .str .tree-name { color: #ff7777; text-shadow: 0 0 12px rgba(224,68,68,0.6); }
+  .int .tree-name { color: #7799ff; text-shadow: 0 0 12px rgba(68,119,238,0.6); }
+  .agi .tree-name { color: #77dd88; text-shadow: 0 0 12px rgba(68,187,85,0.6); }
+
+  .tree-header .tree-points {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .tree-header .tree-points b { color: var(--text); }
+
+  /* 노드 바디 */
+  .tree-body {
+    padding: 10px 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* 행 잠금 표시 */
+  .row-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 10px;
+    color: #555566;
+    position: relative;
+  }
+  .row-gate::before, .row-gate::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #2a2a3a;
+  }
+  .row-gate.unlocked { color: #557755; }
+  .row-gate.unlocked::before, .row-gate.unlocked::after { background: #2a4a2a; }
+  .row-gate .gate-label {
+    padding: 2px 10px;
+    border: 1px solid #2a2a3a;
+    border-radius: 10px;
+    background: #151520;
+    white-space: nowrap;
+  }
+  .row-gate.unlocked .gate-label {
+    border-color: #2a4a2a;
+    background: #101810;
+    color: #668866;
+  }
+
+  .tree-row {
+    display: flex;
+    justify-content: center;
+    gap: var(--node-gap);
+    position: relative;
+    padding: 4px 0;
+  }
+  .tree-row.locked .node-wrap { opacity: 0.28; }
+  .tree-row.locked .node-wrap:hover { opacity: 0.45; }
+
+  /* 연결선 */
+  .connector {
+    display: flex;
+    justify-content: center;
+    gap: var(--node-gap);
+    height: 10px;
+    align-items: center;
+  }
+  .connector .line {
+    width: var(--node-size);
+    display: flex;
+    justify-content: center;
+  }
+  .connector .line::before {
+    content: '';
+    width: 2px;
+    height: 10px;
+    background: #2a2a3e;
+    display: block;
+    transition: background 0.2s;
+  }
+  .connector .line.active::before { background: #4a4a6e; }
+
+  /* 노드 */
+  .node-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: transform 0.1s;
+    user-select: none;
+  }
+  .node-wrap:hover { transform: scale(1.06); }
+  .node-wrap:active { transform: scale(0.96); }
+
+  .node {
+    width: var(--node-size);
+    height: var(--node-size);
+    border-radius: 5px;
+    border: 2px solid #333344;
+    background: #181824;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.15s;
+    overflow: hidden;
+  }
+
+  .node.notable {
+    border-radius: 50%;
+    width: 62px; height: 62px;
+  }
+  .node.keystone {
+    border-radius: 0;
+    transform: rotate(45deg);
+    width: 52px; height: 52px;
+  }
+  .node.keystone .node-inner { transform: rotate(-45deg); }
+
+  /* 활성 */
+  .node.active.str-node {
+    border-color: var(--str-color);
+    background: var(--str-mid);
+    box-shadow: 0 0 14px rgba(224,68,68,0.45), inset 0 0 10px rgba(224,68,68,0.12);
+  }
+  .node.active.int-node {
+    border-color: var(--int-color);
+    background: var(--int-mid);
+    box-shadow: 0 0 14px rgba(68,119,238,0.45), inset 0 0 10px rgba(68,119,238,0.12);
+  }
+  .node.active.agi-node {
+    border-color: var(--agi-color);
+    background: var(--agi-mid);
+    box-shadow: 0 0 14px rgba(68,187,85,0.45), inset 0 0 10px rgba(68,187,85,0.12);
+  }
+
+  .node.reachable { border-style: dashed; border-color: #446; }
+  .node.keystone.active.str-node { box-shadow: 0 0 24px rgba(224,68,68,0.7); }
+  .node.keystone.active.int-node { box-shadow: 0 0 24px rgba(68,119,238,0.7); }
+  .node.keystone.active.agi-node { box-shadow: 0 0 24px rgba(68,187,85,0.7); }
+
+  .node-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    z-index: 1;
+  }
+  .node-icon { font-size: 20px; line-height: 1; }
+  .node.notable .node-icon { font-size: 22px; }
+  .node.keystone .node-icon { font-size: 18px; }
+
+  .node-label {
+    font-size: 8px;
+    color: #666677;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 52px;
+    word-break: keep-all;
+  }
+  .node.active .node-label { color: #aaaacc; }
+
+  .node-level {
+    font-size: 10px;
+    color: #555566;
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+  }
+  .node.active .node-level { color: #bbbbcc; }
+  .node.active.str-node .node-level { color: #ff9999; }
+  .node.active.int-node .node-level { color: #99aaff; }
+  .node.active.agi-node .node-level { color: #99dd99; }
+
+  /* 툴팁 */
+  .tooltip {
+    position: fixed;
+    background: #1c1c2c;
+    border: 1px solid #3a3a5a;
+    border-radius: 6px;
+    padding: 12px 16px;
+    max-width: 240px;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    font-size: 12px;
+    line-height: 1.7;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold); margin-bottom: 6px; }
+  .tooltip .tt-effect { color: #c0c0d8; }
+  .tooltip .tt-cost { color: var(--text-dim); font-size: 11px; margin-top: 8px; border-top: 1px solid #2a2a3a; padding-top: 6px; }
+  .tooltip .tt-type { font-size: 10px; color: #555566; margin-top: 2px; }
+
+  /* 하단 */
+  .bottom-bar {
+    display: flex;
+    gap: 14px;
+    margin-top: 22px;
+    align-items: center;
+  }
+  .btn {
+    padding: 10px 28px;
+    border-radius: 4px;
+    border: 1px solid;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .btn-save { background: #1e1800; border-color: var(--gold); color: var(--gold); }
+  .btn-save:hover { background: #2e2400; box-shadow: 0 0 14px rgba(224,176,48,0.3); }
+  .btn-reset { background: #180e0e; border-color: #553333; color: #997777; }
+  .btn-reset:hover { background: #221212; border-color: #774444; color: #bb8888; }
+
+  .save-msg { font-size: 11px; opacity: 0; transition: opacity 0.3s; }
+  .save-msg.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ PASSIVE AWAKENING</h1>
+  <div class="subtitle">신령의 참으로 각성의 길을 열어라</div>
+</div>
+
+<div class="point-bar">
+  <div class="total">잔여 포인트 <span id="remaining">40</span> / 40</div>
+  <div class="hint">좌클릭: 찍기 &nbsp;|&nbsp; 우클릭: 취소</div>
+</div>
+
+<div class="trees" id="trees"></div>
+
+<div class="bottom-bar">
+  <button class="btn btn-save" onclick="saveNodes()">저장</button>
+  <button class="btn btn-reset" onclick="resetAll()">초기화</button>
+  <span class="save-msg" id="saveMsg"></span>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const API = 'http://localhost:8080';
+const token = new URLSearchParams(location.search).get('token') || 'test';
+
+const TREES = [
+  {
+    id: 'str', label: '전투', color: 'str',
+    rows: [
+      {
+        req: 0,
+        nodes: [
+          { id:'str_1', icon:'⚔️', label:'강타', type:'normal', maxLv:5, effect:'물리 공격력 +2% (레벨당)', cost:1 },
+          { id:'str_2', icon:'🛡️', label:'철벽', type:'normal', maxLv:5, effect:'물리 방어 +2% (레벨당)', cost:1 },
+          { id:'str_3', icon:'❤️', label:'강인한 육체', type:'normal', maxLv:5, effect:'최대 HP +2% (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 5,
+        nodes: [
+          { id:'str_4', icon:'🔥', label:'분노', type:'normal', maxLv:3, effect:'근거리 공격 시 3% 확률로 피해 +50%', cost:1 },
+          { id:'str_5', icon:'🗡️', label:'이단베기', type:'normal', maxLv:3, effect:'공격 속도 +5% (레벨당)', cost:1 },
+          { id:'str_6', icon:'💪', label:'근력 강화', type:'normal', maxLv:3, effect:'STR +3 (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 12,
+        nodes: [
+          { id:'str_7', icon:'🏆', label:'전쟁의 신', type:'notable', maxLv:1, effect:'STR +15\n치명타율 +10%', cost:2 },
+          { id:'str_8', icon:'🌪️', label:'연전연승', type:'notable', maxLv:1, effect:'적 처치 시 5초간\n공격력 +20%', cost:2 },
+        ]
+      },
+      {
+        req: 20,
+        nodes: [
+          { id:'str_9', icon:'💀', label:'불굴의 의지', type:'normal', maxLv:3, effect:'HP 30% 이하 시 받는 피해 -10% (레벨당)', cost:2 },
+          { id:'str_10', icon:'🔱', label:'파괴의 일격', type:'normal', maxLv:3, effect:'물리 스킬 피해 +8% (레벨당)', cost:2 },
+        ]
+      },
+      {
+        req: 30,
+        nodes: [
+          { id:'str_11', icon:'👹', label:'광전사', type:'keystone', maxLv:1, effect:'공격 시 HP 3% 흡혈\n단, 방어구 효과 0', cost:4 },
+        ]
+      },
+    ],
+  },
+  {
+    id: 'int', label: '마도', color: 'int',
+    rows: [
+      {
+        req: 0,
+        nodes: [
+          { id:'int_1', icon:'✨', label:'마나의 흐름', type:'normal', maxLv:5, effect:'최대 SP +2% (레벨당)', cost:1 },
+          { id:'int_2', icon:'🔮', label:'마법 집중', type:'normal', maxLv:5, effect:'스킬 데미지 +2% (레벨당)', cost:1 },
+          { id:'int_3', icon:'💧', label:'SP 절약', type:'normal', maxLv:5, effect:'스킬 SP소모 -2% (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 5,
+        nodes: [
+          { id:'int_4', icon:'⚡', label:'번개 친화', type:'normal', maxLv:3, effect:'속성 마법 데미지 +8% (레벨당)', cost:1 },
+          { id:'int_5', icon:'🌀', label:'마법 가속', type:'normal', maxLv:3, effect:'캐스팅 시간 -5% (레벨당)', cost:1 },
+          { id:'int_6', icon:'🧠', label:'지력 강화', type:'normal', maxLv:3, effect:'INT +3 (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 12,
+        nodes: [
+          { id:'int_7', icon:'🌟', label:'대마도사', type:'notable', maxLv:1, effect:'INT +15\nMATK +10%', cost:2 },
+          { id:'int_8', icon:'🔯', label:'원소 폭발', type:'notable', maxLv:1, effect:'속성 스킬 적중 시\n5% 추가 피해', cost:2 },
+        ]
+      },
+      {
+        req: 20,
+        nodes: [
+          { id:'int_9', icon:'🌙', label:'침묵의 마법진', type:'normal', maxLv:3, effect:'스킬 범위 +5% (레벨당)', cost:2 },
+          { id:'int_10', icon:'💫', label:'마법 회로', type:'normal', maxLv:3, effect:'SP 자연회복 +10% (레벨당)', cost:2 },
+        ]
+      },
+      {
+        req: 30,
+        nodes: [
+          { id:'int_11', icon:'☠️', label:'마나 번', type:'keystone', maxLv:1, effect:'HP 대신 SP로 피해 흡수\n단, SP 0 시 즉사', cost:4 },
+        ]
+      },
+    ],
+  },
+  {
+    id: 'agi', label: '섬광', color: 'agi',
+    rows: [
+      {
+        req: 0,
+        nodes: [
+          { id:'agi_1', icon:'💨', label:'민첩한 발놀림', type:'normal', maxLv:5, effect:'이동속도 +2% (레벨당)', cost:1 },
+          { id:'agi_2', icon:'👁️', label:'회피의 달인', type:'normal', maxLv:5, effect:'회피율 +2% (레벨당)', cost:1 },
+          { id:'agi_3', icon:'⚡', label:'빠른 손', type:'normal', maxLv:5, effect:'ASPD +2% (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 5,
+        nodes: [
+          { id:'agi_4', icon:'🌪️', label:'잔상', type:'normal', maxLv:3, effect:'회피 성공 시 다음 공격 +15% 피해', cost:1 },
+          { id:'agi_5', icon:'🗡️', label:'연속 공격', type:'normal', maxLv:3, effect:'물리 공격 시 5% 확률로 2회 타격', cost:1 },
+          { id:'agi_6', icon:'🎯', label:'정밀 타격', type:'normal', maxLv:3, effect:'명중률 +5% (레벨당)', cost:1 },
+        ]
+      },
+      {
+        req: 12,
+        nodes: [
+          { id:'agi_7', icon:'🦅', label:'바람의 전사', type:'notable', maxLv:1, effect:'AGI +15\n완전회피 +5%', cost:2 },
+          { id:'agi_8', icon:'🌙', label:'그림자 걸음', type:'notable', maxLv:1, effect:'이동 중 피해 감소 20%', cost:2 },
+        ]
+      },
+      {
+        req: 20,
+        nodes: [
+          { id:'agi_9', icon:'🔪', label:'급소 찌르기', type:'normal', maxLv:3, effect:'크리티컬 피해 +10% (레벨당)', cost:2 },
+          { id:'agi_10', icon:'💥', label:'폭풍 연격', type:'normal', maxLv:3, effect:'ASPD 한계 +2% (레벨당)', cost:2 },
+        ]
+      },
+      {
+        req: 30,
+        nodes: [
+          { id:'agi_11', icon:'👻', label:'유령 걸음', type:'keystone', maxLv:1, effect:'회피 스탯을 방어도로 전환\n단, 회피율 0', cost:4 },
+        ]
+      },
+    ],
+  },
+];
+
+const state = {};
+const MAX_POINTS = 40;
+
+function getUsedPoints() {
+  let t = 0;
+  for (const [id, lv] of Object.entries(state)) {
+    const n = findNode(id); if (n) t += n.cost * lv;
+  }
+  return t;
+}
+
+function getTreePoints(treeId) {
+  const tree = TREES.find(t => t.id === treeId);
+  let t = 0;
+  for (const row of tree.rows)
+    for (const n of row.nodes) t += (state[n.id] || 0) * n.cost;
+  return t;
+}
+
+function findNode(id) {
+  for (const tree of TREES)
+    for (const row of tree.rows) {
+      const n = row.nodes.find(n => n.id === id);
+      if (n) return n;
+    }
+  return null;
+}
+
+function render() {
+  const container = document.getElementById('trees');
+  container.innerHTML = '';
+  const used = getUsedPoints();
+  document.getElementById('remaining').textContent = MAX_POINTS - used;
+
+  for (const tree of TREES) {
+    const panel = document.createElement('div');
+    panel.className = `tree-panel ${tree.id}`;
+    const treeUsed = getTreePoints(tree.id);
+
+    panel.innerHTML = `
+      <div class="tree-header">
+        <div class="tree-name">${tree.label}</div>
+        <div class="tree-points">사용 <b>${treeUsed}</b>pt</div>
+      </div>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'tree-body';
+
+    for (let ri = 0; ri < tree.rows.length; ri++) {
+      const rowData = tree.rows[ri];
+      const unlocked = treeUsed >= rowData.req;
+
+      // 연결선
+      if (ri > 0) {
+        const prevNodes = tree.rows[ri - 1].nodes;
+        const conn = document.createElement('div');
+        conn.className = 'connector';
+        prevNodes.forEach(() => {
+          const line = document.createElement('div');
+          line.className = 'line' + (unlocked ? ' active' : '');
+          conn.appendChild(line);
+        });
+        body.appendChild(conn);
+      }
+
+      // 행 잠금 게이트 (첫 행 제외)
+      if (ri > 0) {
+        const gate = document.createElement('div');
+        gate.className = 'row-gate' + (unlocked ? ' unlocked' : '');
+        gate.innerHTML = `<span class="gate-label">${unlocked ? '✓' : '🔒'} ${rowData.req}pt 이상 필요</span>`;
+        body.appendChild(gate);
+      }
+
+      const rowEl = document.createElement('div');
+      rowEl.className = 'tree-row' + (unlocked ? '' : ' locked');
+
+      for (const node of rowData.nodes) {
+        const lv = state[node.id] || 0;
+        const isActive = lv > 0;
+        const canAdd = unlocked && (MAX_POINTS - used) >= node.cost && lv < node.maxLv;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'node-wrap';
+
+        const el = document.createElement('div');
+        el.className = `node ${node.type} ${tree.id}-node${isActive ? ' active' : ''}${!isActive && unlocked ? ' reachable' : ''}`;
+        el.innerHTML = `<div class="node-inner"><div class="node-icon">${node.icon}</div><div class="node-label">${node.label}</div></div>`;
+
+        const lvEl = document.createElement('div');
+        lvEl.className = 'node-level';
+        lvEl.textContent = `${lv}/${node.maxLv}`;
+
+        wrap.appendChild(el);
+        wrap.appendChild(lvEl);
+
+        wrap.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!unlocked || !canAdd) return;
+          state[node.id] = (state[node.id] || 0) + 1;
+          render();
+        });
+        wrap.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (lv > 0) {
+            state[node.id]--;
+            if (state[node.id] === 0) delete state[node.id];
+            render();
+          }
+        });
+
+        wrap.addEventListener("mouseenter", (e) => showTooltip(e, node, unlocked));
+        wrap.addEventListener('mousemove', moveTooltip);
+        wrap.addEventListener('mouseleave', hideTooltip);
+
+        rowEl.appendChild(wrap);
+      }
+
+      body.appendChild(rowEl);
+    }
+
+    panel.appendChild(body);
+    container.appendChild(panel);
+  }
+}
+
+const tt = document.getElementById('tooltip');
+function showTooltip(e, node, unlocked = true) {
+  const lv = state[node.id] || 0;
+  const typeLabel = { normal:"일반", notable:"주요", keystone:"키스톤" }[node.type];
+  const lockMsg = unlocked ? "" : "<br><span style=\"color:#aa4444\">🔒 이전 단계 포인트 부족</span>";
+  tt.innerHTML = `
+    <div class="tt-name">${node.icon} ${node.label}</div>
+    <div class="tt-effect">${node.effect.replace(/\n/g,'<br>')}</div>
+    <div class="tt-cost">
+      포인트 비용: ${node.cost} &nbsp;·&nbsp; 현재: ${lv}/${node.maxLv}<br>
+      <span class="tt-type">${typeLabel} 노드</span>${lockMsg}
+    </div>
+  `;
+  moveTooltip(e);
+  tt.classList.add('show');
+}
+function moveTooltip(e) {
+  let x = e.clientX + 16, y = e.clientY + 16;
+  if (x + 250 > window.innerWidth) x = e.clientX - 255;
+  if (y + 140 > window.innerHeight) y = e.clientY - 140;
+  tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+function hideTooltip() { tt.classList.remove('show'); }
+
+async function saveNodes() {
+  try {
+    const res = await fetch(`${API}/api/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, nodes: state })
+    });
+    const data = await res.json();
+    const msg = document.getElementById('saveMsg');
+    if (data.valid) {
+      msg.textContent = '✓ 저장되었습니다.';
+      msg.style.color = '#66aa66';
+    } else {
+      msg.textContent = '✗ 저장 실패: ' + (data.error || '오류');
+      msg.style.color = '#aa6666';
+    }
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2500);
+  } catch(e) { alert('API 연결 실패: ' + e.message); }
+}
+
+function resetAll() {
+  if (!confirm('모든 포인트를 초기화하시겠습니까?')) return;
+  for (const k of Object.keys(state)) delete state[k];
+  render();
+}
+
+async function init() {
+  try {
+    const res = await fetch(`${API}/api/load?token=${token}`);
+    const data = await res.json();
+    if (data.valid && data.nodes)
+      for (const [k, v] of Object.entries(data.nodes)) state[k] = v;
+  } catch(e) { console.warn('로드 실패, 빈 트리로 시작'); }
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
